@@ -1,23 +1,34 @@
 import sys
 from sys import argv
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 try:
     creds = {   
-            "trading":True,
-            "usr":argv[1],
-            "pswd":argv[2],
-            "pin":argv[3],
-            "trade_watchlist":7,
-            "email":None
+            "trading": True,
+            "usr": argv[1],
+            "pswd": argv[2],
+            "pin": argv[3],
+            "trade_watchlist": 7,
+            "email": None
             }
 except:
+    # Get credentials from .env file
     creds = {   
-        "trading":True,  
-        "usr":"T4546k3",    #give kite userid
-        "pswd":"password", #give kite password
-        "pin":"854646",  #give kite pin
-        "trade_watchlist":7,
-        "email":"kodakandlasrikar99@gmail.com" #give your mail address
+        "trading": True,  
+        "usr": os.getenv('ZERODHA_USER_ID'),
+        "pswd": os.getenv('ZERODHA_PASSWORD'),
+        "pin": None,  # We'll ask for this at runtime
+        "trade_watchlist": 7,
+        "email": os.getenv('ZERODHA_EMAIL')
         }
+    
+    # Ask for PIN at runtime
+    if not creds["pin"]:
+        creds["pin"] = input("Please enter your Zerodha PIN (OTP): ")
 get_optimized_supertrend=False
 #period=74
 #multiplier=12.3

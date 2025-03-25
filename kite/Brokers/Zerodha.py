@@ -13,19 +13,21 @@ except:
     import background
 import threading
 from selenium import webdriver
-from selenium import webdriver
-from webdriver_manager.firefox import GeckoDriverManager
-from selenium.webdriver.firefox.options import Options
-from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 #from selenium.common.exceptions import NoSuchElementException 
 import pandas as pd
 from io import StringIO 
 from bs4 import BeautifulSoup
 import sys
 from time import sleep
-from webdriver_manager.chrome import ChromeDriverManager
+
 class None_Web_Eelement:
     __instance = None
     def __init__(self):
@@ -63,44 +65,41 @@ class ZC:
     ORDER_TYPE_MARKET = "Market"
     ORDER_TYPE_LIMIT = "Limit"
     
-    
     #Page reference
     login_url = "https://kite.zerodha.com/"
-    xpath_username = "//*[@id='container']/div/div/div/form/div[2]/input"
-    xpath_pswd = "//*[@id='container']/div/div/div/form/div[3]/input"
-    xpath_pin = "//*[@id='container']/div/div/div/form/div[2]/div/input"
+    xpath_username = "//input[@type='text']"
+    xpath_pswd = "//input[@type='password']"
+    xpath_pin = "//input[@type='password'][@maxlength='6']"  # More specific PIN field selector
+    xpath_continue = "//button[@type='submit']"
            
 class ZerodhaConnect(threading.Thread):
     close_time = dt.datetime.now().replace(hour=15, minute=29, second=55, microsecond=0)
     open_time = dt.datetime.now().replace(hour=9, minute=15, second=00, microsecond=0)
     start_time = dt.datetime.now().replace(hour=9, minute=00, second=00, microsecond=0)
-    def __init__(self,usr = None, headless = True):
+    def __init__(self,usr = None, headless = False):
         pswd=usr['pswd'] 
         pin = usr['pin']
         self.user_name = usr['usr'] 
         self.wlist = usr['trade_watchlist']
         self.mail = usr['email']
         
-        #chrome_options = chrome_options = webdriver.ChromeOptions()
-        #chrome_options.add_argument("--disable-notifications")
-        #if headless:
-        #    chrome_options.add_argument("--window-size=1920,1080")
-        #    chrome_options.add_argument("--disable-extensions")
-        #    chrome_options.add_argument("--proxy-server='direct://'")
-        #    chrome_options.add_argument("--proxy-bypass-list=*")
-        #    chrome_options.add_argument("--start-maximized")
-        #    chrome_options.add_argument('--headless')
-        #    chrome_options.add_argument('--disable-gpu')
-        #    chrome_options.add_argument('--disable-dev-shm-usage')
-        #    chrome_options.add_argument('--no-sandbox')
-        #    chrome_options.add_argument('--ignore-certificate-errors')
-        #driver = webdriver.Chrome(ChromeDriverManager().install())
-        
-        #self.driver = webdriver.Chrome(ChromeDriverManager().install(),chrome_options=chrome_options)
-        options = Options()
+        chrome_options = Options()
+        chrome_options.add_argument("--disable-notifications")
         if headless:
-            options.headless = True
-        self.driver = webdriver.Firefox(options=options,executable_path=GeckoDriverManager().install())
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--proxy-server='direct://'")
+            chrome_options.add_argument("--proxy-bypass-list=*")
+            chrome_options.add_argument("--start-maximized")
+            chrome_options.add_argument('--headless')
+            chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--disable-dev-shm-usage')
+            chrome_options.add_argument('--no-sandbox')
+            chrome_options.add_argument('--ignore-certificate-errors')
+        
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+        self.wait = WebDriverWait(self.driver, 20)
         
         # Call the Thread class's init function
         threading.Thread.__init__(self)
@@ -110,20 +109,71 @@ class ZerodhaConnect(threading.Thread):
         self.ticker_element = None
         #Init valriables
         
+        print("Navigating to login page...")
         self.driver.get(ZC.login_url)
         self.driver.maximize_window()
        
         ''' Login Procedure '''
         try:
-            if self.user_name:        
-                self.driver.find_element_by_xpath(ZC.xpath_username).send_keys(self.user_name)
-                self.driver.find_element_by_xpath(ZC.xpath_pswd).send_keys(pswd+Keys.ENTER)
-                time.sleep(1)
-                self.driver.find_element_by_xpath(ZC.xpath_pin).send_keys(pin+Keys.ENTER)
+            if self.user_name:
+                print("Starting login process...")
+                
+                # Wait for and enter username
+                print("Entering username...")
+                username_field = self.wait.until(EC.presence_of_element_located((By.XPATH, ZC.xpath_username)))
+                username_field.clear()
+                username_field.send_keys(self.user_name)
+                
+                # Wait for and enter password
+                print("Entering password...")
+                password_field = self.wait.until(EC.presence_of_element_located((By.XPATH, ZC.xpath_pswd)))
+                password_field.clear()
+                password_field.send_keys(pswd)
+                
+                # Click continue
+                print("Clicking continue after password...")
+                continue_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, ZC.xpath_continue)))
+                continue_btn.click()
+                
+                # Wait for PIN page to load
+                print("Waiting for PIN page...")
+                time.sleep(5)  # Increased wait time for PIN page
+                
+                # Wait for and enter PIN
+                print("Entering PIN...")
+                pin_field = self.wait.until(EC.presence_of_element_located((By.XPATH, ZC.xpath_pin)))
+                pin_field.clear()
+                pin_field.send_keys(pin)
+                
+                # Click continue again
+                print("Clicking continue after PIN...")
+                continue_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, ZC.xpath_continue)))
+                continue_btn.click()
+                
+                # Wait for successful login
+                print("Waiting for successful login...")
+                time.sleep(5)  # Additional wait after clicking continue
+                
+                # Check for successful login
+                if self.wait_for_login():
+                    print("Successfully logged in to Zerodha!")
+                    # Initialize trading components
+                    time.sleep(5)
+                    self.el_left_container = self.driver.find_element_by_class_name('container-left')
+                    self.el_watchlist_selector = self.el_left_container.find_element_by_class_name('marketwatch-selector')
+                    self.wachlists = self.el_watchlist_selector.find_elements_by_tag_name('li')
+                    self.mode = ZC.MODE_LTP  # default mode
+                else:
+                    raise Exception("Login verification failed")
             else:
                 self.wait_for_login()
-        except:
-            print('Login Failed')
+        except Exception as e:
+            print('Login Failed:', str(e))
+            print('Current URL:', self.driver.current_url)
+            print('Page Source:', self.driver.page_source)
+            self.driver.save_screenshot('login_error.png')
+            print('Screenshot saved as login_error.png')
+            self.driver.quit()
             exit(0)
             
         ''' Left Container elements '''
@@ -155,11 +205,18 @@ class ZerodhaConnect(threading.Thread):
         self.stop_flag = True
 
     def wait_for_login(self):
-        while True:
+        max_attempts = 12  # 1 minute total wait time
+        attempts = 0
+        while attempts < max_attempts:
             time.sleep(5)
-            if "dashboard" in self.driver.current_url:
-                break;
-        print('Login Successfully')
+            current_url = self.driver.current_url
+            if "dashboard" in current_url or "markets" in current_url:
+                print('Login Successful')
+                return True
+            attempts += 1
+            print(f"Waiting for login... Attempt {attempts}/{max_attempts}")
+        print('Login timeout - Please check your credentials')
+        return False
         
     def get_subscribed_ticker(self):
         return self.subscribed_stocks
